@@ -12,8 +12,7 @@ first.
 
 ## Headline results
 
-Both are reproducible from a clean checkout in about a minute (see [Quick
-start](#quick-start)).
+
 
 **Nearest-driver search is exact.** 25 drivers on a known grid, six probes at
 different points and radii, every Redis result cross-checked against a
@@ -44,7 +43,6 @@ driver wins"*.
 
 ---
 
-## The interesting part: how double-booking is prevented
 
 ### The race
 
@@ -89,23 +87,7 @@ rider A                            rider B
    └─ accepted → ride A               └─ accepted → ride B
 ```
 
-Four properties make this hold up:
 
-**1. The lock is taken before the offer, not after the accept.** This is the
-whole point. Locking on accept would leave the human-decision window unguarded,
-which is exactly where the race lives.
-
-**2. A claimed driver leaves the search index.** `ZREM` on the geo set means
-concurrent searches don't even see them as a candidate — contention is avoided
-rather than merely resolved.
-
-**3. Every lock has a TTL.** If the process dies between locking and offering,
-the driver frees themselves after `OFFER_TIMEOUT_MS` instead of being stranded
-forever. On accept, the lock is `PERSIST`ed so it survives for the length of the
-ride, and the ride's terminal transition releases it.
-
-**4. Unlocking is guarded by ownership.** Release is a compare-and-delete in
-Lua, not a bare `DEL`:
 
 ```lua
 if redis.call('GET', KEYS[1]) == ARGV[1] then
@@ -132,29 +114,6 @@ Even if Redis were flushed, restarted, or a lock expired mid-flight, the
 database *physically cannot* record two live rides for one driver. The write
 fails, and the dispatcher treats that as a lost race and moves on.
 
-### Proof the tests aren't vacuous
-
-A safety test that has never failed proves nothing. Setting `UNSAFE_DISABLE_LOCK=1`
-makes `tryLockDriver` behave like an implementation with no locking at all, and
-the same test run against it fails:
-
-```
-  PASS  no driver assigned to more than one live ride     ← Postgres backstop held
-  FAIL  redis locks agree with postgres ride assignments
-  FAIL  all 10 available drivers were matched             ← matched 6 of 10
-```
-
-and the server log shows the backstop actually catching a double-booking:
-
-```
-[dispatch] backstop fired: driver 86c3932b… already has a live ride
-           (ride e613fe84… rejected by rides_one_active_per_driver)
-```
-
-The layers do different jobs, and you can see each one working. With locking
-off, correctness survives but throughput collapses — 4 of 10 drivers wasted.
-
----
 
 ## A bug the load test found
 
@@ -188,50 +147,9 @@ caught this.
 
 ---
 
-## Architecture
 
-```mermaid
-flowchart TB
-    subgraph clients["Browser"]
-        R["Rider<br/><small>Leaflet map</small>"]
-        D["Driver<br/><small>GPS stream</small>"]
-        F["Fleet<br/><small>observer</small>"]
-    end
 
-    subgraph app["Node.js · Express"]
-        HTTP["REST API<br/><small>auth · rides · drivers</small>"]
-        WS["WebSocket hub<br/><small>offers · positions</small>"]
-        DISPATCH["Dispatch loop<br/><small>search → claim → offer</small>"]
-    end
 
-    subgraph redis["Redis — live state"]
-        GEO[("drivers:geo<br/><small>GEOSEARCH index</small>")]
-        LOCK[("lock:driver:*<br/><small>SET NX + TTL</small>")]
-        CACHE[("ride:*<br/><small>hot ride snapshot</small>")]
-    end
-
-    subgraph pg["Postgres — system of record"]
-        T[("users · drivers<br/>rides · ride_offers")]
-        IDX{{"UNIQUE INDEX<br/>one active ride per driver"}}
-    end
-
-    R -->|"POST /api/rides"| HTTP
-    D -->|"driver:location"| WS
-    F -->|"GET /nearby"| HTTP
-    WS -->|"driver:position"| R
-    WS -->|"ride:offer"| D
-
-    HTTP --> DISPATCH
-    WS -->|GEOADD| GEO
-    DISPATCH -->|1· GEOSEARCH| GEO
-    DISPATCH -->|2· SET NX| LOCK
-    DISPATCH -->|3· offer| WS
-    DISPATCH -->|4· commit| T
-    T --- IDX
-    WS -->|position ticks| CACHE
-```
-
-### Why the split
 
 Postgres and Redis hold different things on purpose.
 
@@ -273,17 +191,6 @@ active-ride pointer and its cached snapshot before the first request is served.
 ```
 [boot] cleared stale driver availability index
 [boot] reconciled 1 in-flight ride(s) from postgres
-```
-
-### Ride lifecycle
-
-```
-requested ──► matched ──► in_progress ──► completed
-    │            │
-    │            └──► cancelled
-    └──► no_drivers          (rider cancels before pickup)
-       (no driver accepted)
-```
 
 Every transition is a guarded `UPDATE ... WHERE status = <expected>`, so two
 concurrent attempts can't both succeed — the second matches zero rows and 409s.
@@ -397,51 +304,4 @@ test/                    ← unit tests
 
 ---
 
-## How I'd scale this
 
-Honest accounting of what this build does not do, and what I'd reach for.
-
-**Multi-node dispatch.** The locking is already multi-node safe — it lives in
-Redis, which is the part that matters for correctness. What isn't is offer
-*routing*: the WebSocket hub is in-process, so a driver connected to node B
-can't receive an offer dispatched on node A. The fix is a Redis pub/sub fan-out
-keyed by driver id. Only `hub.sendToDriver` and `hub.waitForOffer` change;
-nothing above them does.
-
-**Real routing and ETAs.** ETAs are straight-line distance over an assumed
-average speed. A driver two minutes away across a river reads as thirty seconds.
-OSRM or Valhalla would replace `etaSeconds()` — points in, seconds out, so it's
-a one-function swap. Matching on road-network time rather than crow-flies
-distance would also pick genuinely better drivers.
-
-**PostGIS.** Redis handles live positions well, but it only stores points. Ride
-*history* — heatmaps, "where do trips start on Friday nights", zone-based
-pricing — wants real geometry, spatial joins, and polygon containment. That's
-Postgres + PostGIS territory, on the historical data, not the hot path.
-
-**Kafka.** Right now the ride lifecycle writes to Postgres and pushes over
-WebSocket, and that's it. The moment anything else needs to react to a completed
-ride — billing, driver payouts, fraud scoring, an analytics warehouse — bolting
-each one into the request path is how services rot. Emitting lifecycle events to
-a log and letting consumers subscribe keeps dispatch fast and decoupled.
-
-**Surge pricing.** Needs a demand/supply ratio per geohash cell over a sliding
-window — which the Redis geo index already gives cheaply. I left it out because
-it's a pricing feature, not a distributed-systems one, and the interesting part
-of this project is the matching.
-
-**Driver assignment quality.** Currently strictly nearest-first. Real dispatch
-optimises globally — batching requests over a short window and solving an
-assignment problem beats greedy per-rider matching, especially at surge. Greedy
-is the right call at this scale and the wrong one at city scale.
-
-**A reaper for abandoned rides.** If a driver disappears mid-trip — phone dies,
-app killed — the ride sits in `in_progress` forever. The rider can cancel before
-pickup but not after, so the trip needs an operator or a timeout to clear it. A
-sweep over rides whose driver hasn't reported a position in *N* minutes, moving
-them to a `stalled` state and releasing the driver, is the missing piece. I hit
-this for real while testing: a simulated driver was killed mid-ride and its ride
-stayed live across a restart.
-
-**Operational gaps.** No rate limiting, no refresh tokens, no structured
-logging, no metrics export. Fine for a demo, not for production.
