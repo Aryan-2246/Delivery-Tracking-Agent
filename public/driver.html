@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Driver · Live Tracking</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <header>
+        <h1>Ride Tracking · Driver</h1>
+        <div class="sub">Stream position, receive offers, run the trip</div>
+        <nav class="role-switch">
+          <a href="/">Rider</a>
+          <a href="/driver.html" class="active">Driver</a>
+          <a href="/fleet.html">Fleet</a>
+        </nav>
+      </header>
+
+      <section id="auth">
+        <h2>Sign in</h2>
+        <label for="email">Email</label>
+        <input id="email" type="email" value="driver@demo.test" autocomplete="username">
+        <label for="password">Password</label>
+        <input id="password" type="password" value="password" autocomplete="current-password">
+        <div class="row">
+          <button id="login">Sign in</button>
+          <button id="register" class="secondary">Register</button>
+        </div>
+        <p class="hint">Seed demo accounts with <code>npm run seed</code>.</p>
+      </section>
+
+      <section id="session" class="hidden">
+        <h2>Session</h2>
+        <div class="kv"><span class="k">Driver</span><span class="v" id="who">—</span></div>
+        <div class="kv"><span class="k">Connection</span><span class="status-pill off" id="conn">offline</span></div>
+        <div class="kv"><span class="k">Availability</span><span class="status-pill off" id="avail">offline</span></div>
+        <div class="row">
+          <button id="toggleOnline">Go online</button>
+          <button id="logout" class="secondary">Sign out</button>
+        </div>
+      </section>
+
+      <section id="offerBox" class="hidden">
+        <h2>Incoming ride</h2>
+        <div class="offer">
+          <div class="kv"><span class="k">Pickup distance</span><span class="v" id="offerDistance">—</span></div>
+          <div class="kv"><span class="k">Time to pickup</span><span class="v" id="offerEta">—</span></div>
+          <div class="row">
+            <button id="accept" class="success">Accept</button>
+            <button id="reject" class="danger">Decline</button>
+          </div>
+          <div class="timer" id="offerTimer" style="width:100%"></div>
+        </div>
+      </section>
+
+      <section id="movement" class="hidden">
+        <h2>Position</h2>
+        <div class="kv"><span class="k">Current</span><span class="v" id="posText">—</span></div>
+        <p class="hint">Drag your car marker on the map, or let it drive itself.</p>
+        <div class="row">
+          <button id="autoDrive" class="secondary">Auto-drive: off</button>
+          <button id="recentre" class="secondary">Recentre</button>
+        </div>
+        <label for="speed">Speed <span id="speedLabel">40</span> km/h</label>
+        <input id="speed" type="range" min="10" max="120" value="40">
+      </section>
+
+      <section id="jobBox" class="hidden">
+        <h2>Current job</h2>
+        <div class="kv"><span class="k">Status</span><span class="status-pill live" id="jobStatus">matched</span></div>
+        <div class="metrics">
+          <div class="metric">
+            <div class="label" id="jobTargetLabel">To pickup</div>
+            <div class="value" id="jobDistance">—</div>
+          </div>
+          <div class="metric">
+            <div class="label">ETA</div>
+            <div class="value" id="jobEta">—</div>
+          </div>
+        </div>
+        <button id="startRide" class="success">Start trip</button>
+        <button id="completeRide" class="success hidden">Complete trip</button>
+      </section>
+
+      <section>
+        <h2>Event stream</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </aside>
+
+    <div id="map"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="driver.js"></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fleet · Live Tracking</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <header>
+        <h1>Ride Tracking · Fleet</h1>
+        <div class="sub">Live view of the Redis geospatial index</div>
+        <nav class="role-switch">
+          <a href="/">Rider</a>
+          <a href="/driver.html">Driver</a>
+          <a href="/fleet.html" class="active">Fleet</a>
+        </nav>
+      </header>
+
+      <section>
+        <h2>System</h2>
+        <div class="kv"><span class="k">Health</span><span class="status-pill off" id="health">checking…</span></div>
+        <div class="metrics">
+          <div class="metric">
+            <div class="label">Available drivers</div>
+            <div class="value" id="available">—</div>
+          </div>
+          <div class="metric">
+            <div class="label">Open sockets</div>
+            <div class="value" id="sockets">—</div>
+          </div>
+        </div>
+        <div class="kv"><span class="k">Postgres</span><span class="v" id="pg">—</span></div>
+        <div class="kv"><span class="k">Redis</span><span class="v" id="rd">—</span></div>
+        <div class="kv"><span class="k">Uptime</span><span class="v" id="uptime">—</span></div>
+      </section>
+
+      <section>
+        <h2>Nearest-driver probe</h2>
+        <p class="hint">Click anywhere on the map to run a <code>GEOSEARCH</code> from that point.</p>
+        <label for="radius">Radius <span id="radiusLabel">3000</span> m</label>
+        <input id="radius" type="range" min="200" max="10000" step="100" value="3000">
+        <label for="limit">Results <span id="limitLabel">5</span></label>
+        <input id="limit" type="range" min="1" max="20" value="5">
+        <div class="kv"><span class="k">Probe point</span><span class="v" id="probePoint">—</span></div>
+        <div class="kv"><span class="k">Matched</span><span class="v" id="probeCount">—</span></div>
+        <div class="kv"><span class="k">Query time</span><span class="v" id="probeMs">—</span></div>
+      </section>
+
+      <section>
+        <h2>Results</h2>
+        <div class="log" id="results"></div>
+      </section>
+    </aside>
+
+    <div id="map"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="fleet.js"></script>
+</body>
+</html>

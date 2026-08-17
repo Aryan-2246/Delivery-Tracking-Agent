@@ -1,0 +1,29 @@
+{
+  "name": "tracking",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-time ride matching and driver tracking — Express + Postgres + Redis geospatial + WebSockets",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v && docker compose up -d",
+    "seed": "node sim/seed.js",
+    "sim:drivers": "node sim/simulate-drivers.js",
+    "test:geo": "node sim/verify-nearby.js",
+    "test:race": "node sim/load-test-match.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0",
+    "ws": "^8.18.0"
+  }
+}

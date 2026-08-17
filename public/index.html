@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rider · Live Tracking</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <header>
+        <h1>Ride Tracking · Rider</h1>
+        <div class="sub">Redis geospatial matching + live WebSocket tracking</div>
+        <nav class="role-switch">
+          <a href="/" class="active">Rider</a>
+          <a href="/driver.html">Driver</a>
+          <a href="/fleet.html">Fleet</a>
+        </nav>
+      </header>
+
+      <!-- login -->
+      <section id="auth">
+        <h2>Sign in</h2>
+        <label for="email">Email</label>
+        <input id="email" type="email" value="rider@demo.test" autocomplete="username">
+        <label for="password">Password</label>
+        <input id="password" type="password" value="password" autocomplete="current-password">
+        <div class="row">
+          <button id="login">Sign in</button>
+          <button id="register" class="secondary">Register</button>
+        </div>
+        <p class="hint">Seed demo accounts with <code>npm run seed</code>.</p>
+      </section>
+
+      <!-- session -->
+      <section id="session" class="hidden">
+        <h2>Session</h2>
+        <div class="kv"><span class="k">Signed in as</span><span class="v" id="who">—</span></div>
+        <div class="kv"><span class="k">Connection</span><span class="status-pill off" id="conn">offline</span></div>
+        <button id="logout" class="secondary">Sign out</button>
+      </section>
+
+      <!-- request -->
+      <section id="request" class="hidden">
+        <h2>Request a ride</h2>
+        <p class="hint" id="pickHint">Click the map to set your <b>pickup</b>.</p>
+        <div class="kv"><span class="k">Pickup</span><span class="v" id="pickupText">—</span></div>
+        <div class="kv"><span class="k">Dropoff</span><span class="v" id="dropoffText">—</span></div>
+        <div class="kv"><span class="k">Drivers nearby</span><span class="v" id="nearbyCount">—</span></div>
+        <div class="row">
+          <button id="requestRide" disabled>Request ride</button>
+          <button id="resetPoints" class="secondary">Reset</button>
+        </div>
+      </section>
+
+      <!-- active ride -->
+      <section id="ride" class="hidden">
+        <h2>Your ride</h2>
+        <div class="kv">
+          <span class="k">Status</span>
+          <span class="status-pill waiting" id="rideStatus">requested</span>
+        </div>
+        <div class="kv"><span class="k">Driver</span><span class="v" id="driverName">searching…</span></div>
+        <div class="kv"><span class="k">Vehicle</span><span class="v" id="driverVehicle">—</span></div>
+
+        <div class="metrics">
+          <div class="metric">
+            <div class="label" id="etaLabel">ETA to pickup</div>
+            <div class="value" id="eta">—</div>
+          </div>
+          <div class="metric">
+            <div class="label">Distance</div>
+            <div class="value" id="distance">—</div>
+          </div>
+        </div>
+
+        <button id="cancelRide" class="danger">Cancel ride</button>
+      </section>
+
+      <!-- log -->
+      <section>
+        <h2>Event stream</h2>
+        <div class="log" id="log"></div>
+      </section>
+    </aside>
+
+    <div id="map"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="rider.js"></script>
+</body>
+</html>
